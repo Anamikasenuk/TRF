@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASOS TRF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the TRF as a supplier sees it in PLM, every field tagged with its source; a sticky source panel maps the PO into the form. */
+:root{
+  --bg:#ffffff; --fg:#111111; --muted:#5f5f5c; --line:#e3e2de; --panel:#f6f5f2; --ink:#111111; --ink-fg:#ffffff;
+  --po:#1d6b46; --po-bg:#e3f3ea; --plm:#1f5fa8; --plm-bg:#e8f0fa; --rule:#5b3fb0; --rule-bg:#efebfb;
+  --sup:#8a5a00; --sup-bg:#fbf1dc; --pend:#55554f; --pend-bg:#efeeea; --bad:#b0281f; --bad-bg:#fbe6e4;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif; --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121211; --fg:#f2f1ed; --muted:#a3a29c; --line:#2d2c29; --panel:#1b1a18; --ink:#f2f1ed; --ink-fg:#121211;
+  --po:#86d8a9; --po-bg:#14301f; --plm:#8fbcf0; --plm-bg:#16263a; --rule:#c0b0f5; --rule-bg:#241d3d;
+  --sup:#f0c46c; --sup-bg:#33270f; --pend:#c4c3bd; --pend-bg:#2a2926; --bad:#f39a92; --bad-bg:#3a1714; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121211; --fg:#f2f1ed; --muted:#a3a29c; --line:#2d2c29; --panel:#1b1a18; --ink:#f2f1ed; --ink-fg:#121211;
+  --po:#86d8a9; --po-bg:#14301f; --plm:#8fbcf0; --plm-bg:#16263a; --rule:#c0b0f5; --rule-bg:#241d3d;
+  --sup:#f0c46c; --sup-bg:#33270f; --pend:#c4c3bd; --pend-bg:#2a2926; --bad:#f39a92; --bad-bg:#3a1714; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.55;margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px;padding-block:28px 64px;display:flex;flex-direction:column;gap:36px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:clamp(30px,5vw,44px);font-weight:800;line-height:1.05}
+h2{font-size:22px;font-weight:800}
+h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+p{margin:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.lede{max-width:74ch;color:var(--muted)}
+header{display:flex;flex-direction:column;gap:10px;border-bottom:3px solid var(--ink);padding-bottom:20px}
+.proto{font-family:var(--mono);font-size:12px;border:1px solid var(--ink);padding:3px 8px;width:max-content;max-width:100%}
+/* source filter strip */
+.srcbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid var(--ink)}
+.srcbar button{all:unset;cursor:pointer;padding:12px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.srcbar button:last-child{border-right:0}
+.srcbar button b{font-family:var(--display);font-size:30px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.srcbar button span{font-size:13px;color:var(--muted)}
+.srcbar button[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:-3px}
+.srcbar button:focus-visible{outline:3px solid var(--plm);outline-offset:-3px}
+.srcbar .k{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:0}
+/* layout */
+.bench{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:28px;align-items:start}
+@media (max-width:960px){.bench{grid-template-columns:minmax(0,1fr)}}
+.form{border:3px solid var(--ink);min-width:0}
+.form-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 20px;padding:16px 18px;border-bottom:1px solid var(--ink)}
+.form-top .t{font-family:var(--display);font-weight:800;font-size:20px}
+.form-top .n{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.sec{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.sec:last-child{border-bottom:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:2px 20px}
+.f{display:flex;flex-direction:column;gap:3px;min-width:0;padding:8px 0;border-top:1px dashed var(--line);transition:opacity .15s}
+.f.dim{opacity:.22}
+.f .l{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;justify-content:space-between}
+.f .v{font-size:14px;overflow-wrap:anywhere}
+.f .v i{color:var(--muted)}
+.f .p{font-family:var(--mono);font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.f select,.f input{font:14px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--sup);padding:6px 8px;width:100%;min-width:0}
+.f select:focus-visible,.f input:focus-visible{outline:2px solid var(--plm);outline-offset:1px}
+.f.empty select,.f.empty input{background:var(--sup-bg)}
+.f.locked .v::before{content:"🔒︎";font-size:11px;margin-right:6px;color:var(--muted)}
+.src{font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:2px;letter-spacing:.03em;flex:none;white-space:nowrap}
+.s-po{background:var(--po-bg);color:var(--po)} .s-plm{background:var(--plm-bg);color:var(--plm)} .s-rule{background:var(--rule-bg);color:var(--rule)} .s-sup{background:var(--sup-bg);color:var(--sup)} .s-pend{background:var(--pend-bg);color:var(--pend)}
+.sample{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px dashed var(--muted);padding:0 4px;margin-left:6px;font-style:normal}
+.dd{font-size:11.5px;color:var(--muted)}
+/* side */
+.side{display:flex;flex-direction:column;gap:16px;min-width:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+@media (max-width:960px){.side{position:static}}
+.card{border:1px solid var(--line);display:flex;flex-direction:column}
+.card .h{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.card .h b{font-family:var(--display);font-size:15px}
+.map{list-style:none;margin:0;padding:6px 0;font-size:13px}
+.map li{display:grid;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr);gap:6px;padding:5px 14px;align-items:baseline}
+.map li .a{color:var(--muted);overflow-wrap:anywhere} .map li .a b{color:var(--fg);font-weight:500;display:block}
+.map li .ar{color:var(--muted)}
+.map li .to{overflow-wrap:anywhere}
+.map li.note{display:block;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:8px}
+.prog{height:8px;display:flex;background:var(--line)}
+.prog i{display:block;height:100%}
+.btn{font:700 14px var(--display);letter-spacing:.02em;background:var(--ink);color:var(--ink-fg);border:1px solid var(--ink);padding:10px 14px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--fg)}
+.btn:focus-visible{outline:2px solid var(--plm);outline-offset:2px}
+/* tables */
+.tablewrap{overflow-x:auto;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;background:var(--panel);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.opts{font-size:13.5px}
+td.opts span{display:inline-block;border:1px solid var(--line);padding:1px 7px;margin:0 4px 4px 0;background:var(--panel);white-space:nowrap}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.box{border:1px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.box h3{font-size:12px}
+.carelabel{display:flex;gap:10px;padding:8px 10px;border:1px solid var(--line);width:max-content;max-width:100%;color:var(--fg)}
+.carepick{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.crow{display:flex;flex-wrap:wrap;gap:6px}
+.sb{all:unset;cursor:pointer;border:1px solid var(--sup);background:var(--sup-bg);padding:4px;display:flex;color:var(--fg)}
+.sb.on{background:var(--bg);outline:3px solid var(--ink);outline-offset:-3px}
+.sb:focus-visible{outline:2px solid var(--plm);outline-offset:1px}
+.pick{display:flex}
+.ddrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+td.opts span.ddsym{display:inline-flex;padding:3px 5px}
+.nosym{display:inline-block;border:1px dashed var(--line)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.cs{flex:none}
+.ddslot{margin-bottom:8px} .ddslot b{display:block;font-size:12px;margin-bottom:4px}
+td.opts span.ddcare{display:inline-flex;align-items:center;gap:6px;padding:3px 8px}
+td.opts span.ddcare em{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--po)}
+.f.wide{grid-column:1/-1}
+.xadd{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto!important;align-items:center}
+@media (max-width:700px){.xadd{grid-template-columns:1fr!important}}
+.tlist,.xlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.tlist li{background:var(--rule-bg);padding:6px 9px;display:flex;flex-direction:column;gap:1px}
+.tlist li b{font-size:14px;font-weight:600}
+.xlist li{display:flex;justify-content:space-between;gap:8px;align-items:center;background:var(--sup-bg);padding:6px 9px;font-size:13.5px}
+.xdel{all:unset;cursor:pointer;padding:0 6px;font-weight:700}
+.xdel:focus-visible{outline:2px solid var(--plm)}
+.xadd{display:grid;grid-template-columns:1fr;gap:6px;margin-top:6px}
+.xbtn{padding:7px 12px;font-size:13px;justify-self:start}
+.ddrule{font-size:13.5px;margin-bottom:5px} .ddrule i{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--muted)} .ddrule em{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--po)}
+.tnote{display:block;font-size:12.5px;color:var(--sup);margin-top:2px}
+.tpick{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.tpick li{background:var(--rule-bg);padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.tpick li.chg{background:transparent;outline:2px solid var(--sup);outline-offset:-2px}
+.tpick select{width:100%;font-weight:600}
+.tpick .meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--muted)}
+.tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;padding:1px 6px;border:1px solid currentColor}
+.tag.sys{color:var(--rule)} .tag.chg{color:var(--sup)}
+.linkbtn{background:none;border:0;padding:0;font:inherit;font-size:12px;color:var(--ink);text-decoration:underline;cursor:pointer}
+.oeko{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;flex-wrap:wrap}
+.oeko input,.ctest input{width:18px;height:18px;accent-color:var(--ink);margin:0}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px;margin-top:8px}
+.ctest{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);font-size:14px;cursor:pointer}
+.ctest.on{background:var(--rule-bg);border-color:var(--ink);font-weight:600}
+.ctest .p{font-weight:400;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.cdim{opacity:.4;pointer-events:none}
+.chem{background:var(--rule-bg);padding:8px 10px;font-size:13.5px;display:flex;flex-direction:column;gap:2px}
+.chem b{font-size:11px;font-family:var(--mono);letter-spacing:.05em;color:var(--muted);font-weight:500}
+.sim{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.sim label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+.sim select{font:14px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--ink);padding:7px 8px;min-width:0}
+.simout{border:3px solid var(--ink);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.simout .p,.tlist .p{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+.wrap{max-width:1000px}
+.f .l .src,.f .l .s-pend,.sample,.f > .p,.f .tnote,.f > .dd.cap{display:none!important}
+.f.locked .v::before{content:"";display:inline-block;width:9px;height:11px;margin-right:7px;vertical-align:-1px;background:var(--muted);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 12'%3E%3Cpath d='M2 5V3.5a3 3 0 0 1 6 0V5h1v7H1V5zm1.5 0h3V3.5a1.5 1.5 0 0 0-3 0z'/%3E%3C/svg%3E") no-repeat center/contain;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 12'%3E%3Cpath d='M2 5V3.5a3 3 0 0 1 6 0V5h1v7H1V5zm1.5 0h3V3.5a1.5 1.5 0 0 0-3 0z'/%3E%3C/svg%3E") no-repeat center/contain}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="form">
+    <div class="form-top">
+      <div><div class="t">ASOS Testing Request Form (TRF) — Summary</div>
+      <div class="n">TRF Number: issued on submission &nbsp;|&nbsp; Document No: assigned by lab &nbsp;|&nbsp; Date: <span id="today"></span></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="clear">Clear</button></div>
+    </div>
+    <div id="form"></div>
+  </div>
+</div>
+<script>
+const LABS=["BV Istanbul, Türkiye","BV Hong Kong","BV Shanghai, China","BV Dhaka, Bangladesh","BV Gurgaon, India","BV Ho Chi Minh City, Vietnam"];
+const SERVICE=["Regular – 3 days","Shuttle – Next day","Same day"];
+/* wash care: the 5 GINETEX care symbols in label order — washing, bleaching, tumble drying, ironing, professional textile care.
+   Drawn to the GINETEX / ISO 3758 conventions (number in tub, bars = milder process, dots = temperature, St Andrew's cross = do not).
+   Not the official GINETEX artwork: put licensed files in GINETEX_ART to replace any drawing. Labels marked 1 are PLM wording. */
+const CARE_SLOTS=[
+ {k:"w",t:"Washing",opts:[["Wash 40 °C","w40"],["Wash 40 °C, mild process (single bar)","w40b"],["Wash 40 °C, very mild process (double bar)","w40bb"],["Wash 30 °C","w30"],["30 Wash as Synthetic (single bar)","w30b",1],["Wash 30 °C, very mild process (double bar)","w30bb"],["Hand wash, max 40 °C","hand"],["Do not wash","nowash"]]},
+ {k:"b",t:"Bleaching",opts:[["Any bleaching agent allowed","bl"],["Only oxygen / non-chlorine bleach","bl2"],["Do not use bleach","nobl",1]]},
+ {k:"t",t:"Tumble drying",opts:[["Tumble dry, normal temperature","td2"],["Tumble dry, low temperature","td1"],["Do not tumble dry","notd",1]]},
+ {k:"i",t:"Ironing",opts:[["Iron, high temperature (200 °C)","ir3"],["Iron, medium temperature (150 °C)","ir2"],["Cool Iron","ir1",1],["Do not iron","noir"]]},
+ {k:"d",t:"Professional care",opts:[["Dry clean, P","dcP"],["Dry clean, P, mild process (single bar)","dcPb"],["Dry clean, F","dcF"],["Dry clean, F, mild process (single bar)","dcFb"],["Do not dry clean","nodc",1]]}
+];
+const GINETEX_ART={}; /* e.g. GINETEX_ART.w30b="data:image/svg+xml;base64,…" from the licensed GINETEX files */
+const symOf=(slot,txt)=>{ const o=slot.opts.find(x=>x[0]===txt); return o?o[1]:""; };
+function sym(k,size=30){
+  if(!k) return `<span class="nosym" style="width:${size}px;height:${size}px"></span>`;
+  if(GINETEX_ART[k]) return `<img class="cs" src="${GINETEX_ART[k]}" width="${size}" height="${size}" alt="">`;
+  /* 32 x 32 grid, 2.2 stroke, symbol body between y 4 and 26, bars at 28.5 / 31 */
+  const tub='<path d="M3 9.5 L6.2 25 H25.8 L29 9.5"/><path d="M3 9.5 q2.17 -2.6 4.33 0 t4.33 0 t4.33 0 t4.33 0 t4.33 0 t4.33 0"/>';
+  const num=n=>`<text x="16" y="21.6" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" stroke="none" font-family="Arial,Helvetica,sans-serif">${n}</text>`;
+  const bars=n=>n===1?'<path d="M5.5 28.6 H26.5"/>':n===2?'<path d="M5.5 28 H26.5 M5.5 31 H26.5"/>':"";
+  const X='<path d="M3 3.5 L29 27.5 M29 3.5 L3 27.5"/>';
+  const dot=(cx,cy)=>`<circle cx="${cx}" cy="${cy}" r="1.45" fill="currentColor" stroke="none"/>`;
+  const hand='<path d="M11.2 24.5 V16.5 q0 -1.4 1.25 -1.4 q1.25 0 1.25 1.4 V13.8 q0 -1.4 1.25 -1.4 q1.25 0 1.25 1.4 V13.4 q0 -1.4 1.25 -1.4 q1.25 0 1.25 1.4 V15 q0 -1.4 1.25 -1.4 q1.25 0 1.25 1.4 V20 q0 4.5 -4.6 4.5"/>';
+  const tri='<path d="M16 3.8 L29.2 26.5 H2.8 Z"/>';
+  const sq='<rect x="4" y="4" width="24" height="22.5"/>', tc='<circle cx="16" cy="15.25" r="9"/>';
+  const iron='<path d="M2.5 25 H29.5 L27.3 14.5 H12.5 Q4.2 14.5 2.5 25 Z"/><path d="M12.5 14.5 Q13.6 9 21 9 H26.6"/>';
+  const circ='<circle cx="16" cy="15" r="11"/>';
+  const let_=c=>`<text x="16" y="19.4" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor" stroke="none" font-family="Arial,Helvetica,sans-serif">${c}</text>`;
+  const cbar='<path d="M6.5 29.2 H25.5"/>';
+  const g={
+   w95:tub+num(95), w60:tub+num(60), w60b:tub+num(60)+bars(1), w50:tub+num(50), w50b:tub+num(50)+bars(1),
+   w40:tub+num(40), w40b:tub+num(40)+bars(1), w40bb:tub+num(40)+bars(2), w30:tub+num(30), w30b:tub+num(30)+bars(1), w30bb:tub+num(30)+bars(2),
+   hand:tub+hand, nowash:tub+X,
+   bl:tri, bl2:tri+'<path d="M12.4 24.2 L19.2 12.4 M17.2 24.2 L22 15.9"/>', nobl:tri+X,
+   td2:sq+tc+dot(13.4,15.25)+dot(18.6,15.25), td1:sq+tc+dot(16,15.25), notd:sq+tc+X,
+   ir3:iron+dot(13.2,20.6)+dot(17.6,20.6)+dot(22,20.6), ir2:iron+dot(15.4,20.6)+dot(19.8,20.6), ir1:iron+dot(17.6,20.6), noir:iron+X,
+   dcP:circ+let_("P"), dcPb:circ+let_("P")+cbar, dcF:circ+let_("F"), dcFb:circ+let_("F")+cbar, wcW:circ+let_("W"),
+   nodc:circ+X, nowc:circ+let_("W")+X
+  };
+  return `<svg class="cs" viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="square" aria-hidden="true">${g[k]}</svg>`;
+}
+function careComplete(){ return CARE_SLOTS.every(sl=>state.care[sl.k]); }
+function syncCare(){ state.ans.care = careComplete() ? CARE_SLOTS.map(sl=>state.care[sl.k]).join(" | ") : ""; }
+const STAGE=["Base","Bulk","Base & Bulk (combined)"];
+const YN=["Yes","No"];
+const PAYER=["Supplier","Applicant","ASOS","Other"];
+const COUNTRIES=["China","Hong Kong","Türkiye","United Kingdom","Bangladesh","India","Vietnam","Pakistan"];
+/* Test Standard logic, from the team's "Logic to assign table" sheet.
+   Table names copied from the sheet (typo "Performanc" corrected). Protocol codes only where seen on a BV report. */
+const TBL={T1:"Table 1 Bulk Performance Standards",T2:"Table 2 Woven Base Performance Standards",T3:"Table 3 Woven Base Performance Standards - Denim",
+ T4L:"Table 4 Woven Base Performance Standards - Linings",T5L:"Table 5 Jersey Base Performance Standards - Linings",T5:"Table 5 Weft Knit Base Performance Standards",
+ T6:"Table 6 Warp Knit Base Performance Standards",T7:"Table 7 Knitwear Base Performance Standards",T8:"Table 8 Faux Fur and Borg Performance Standards",
+ T9:"Table 9 Synthetic Leathers Base Performance Standards",T10B:"Table 10 Leather and Suede Base & Bulk Performance Standards (base table only)",
+ T10K:"Table 10 Leather and Suede Base & Bulk Performance Standards (bulk table only)",T10:"Table 10 Leather and Suede Base & Bulk Performance Standards"};
+const CODE={T5:"ASOS-SL-PTCL-00298.04 · V29"};
+const L=(list,base)=>list.split("|").map(c=>[c,base]);
+const CONSTR={
+ "Jersey Fabric":[["Seamless","T6"],...L("Other|Bonded","T5"),["Borg","T8"],...L("Brush Back Sweat|DTY/ITY|Scuba Crepe|Single Jersey|Devore","T5"),["Faux Fur","T8"],...L("Crepe|Fleece|Interlock|Jacquard","T5"),["Lace","T6"],["Loopback Sweat","T5"],["Mesh","T6"],...L("Pointelle|Ponti|Satin|Scuba","T5"),["Towelling","T6"],...L("Waffle|Velvet/Velour|Rib","T5")],
+ "Woven Fabric":[...L("Other|Basket|Bedford Cord|Bengaline|Bonded|Boucle|Broiderie|Broken Twill|Double Weave/Double Cloth|Gabardine|Oxford|Sateen|Seersucker|Taffeta|Canvas|Chiffon|Corduroy|Crepe|Crinkle","T2"),["Denim","T3"],...L("Devore|Dobby","T2"),["Faux Fur","T8"],...L("Georgette|Herringbone|Jacquard|Pique|Plisse|Polyester Crepe|Poplin|Ripstop|Satin|Twill|Voile|Waffle|Velvet/Velour|Plain Weave","T2")],
+ "Other Fabric":[["Faux Leather/PU","T9"],["Faux Suede","T9"],["Shearling",""],["Suede",""]],
+ "Leather":[["Real Leather","T10"]],
+ "Yarn":L("Other|Faux Fur|Abrsive Yarn|Boucle|Brushed|Chenille|Core Spun|Cosy|DREF (Friction spun yarn)|Metalic|Mossy|Semi Worsted|Slub|Tape|Worsted|Air Jet (Toyota, Rieter)|Air Spun Low Twist (MJS)|Open End|Ring Compact Spun|Ring Core Spun|Ring Spun|Ring Spun Lost twist|Siro Spun|Vortex High Twist (MVS)|PBT Yarn)","T7")
+};
+const NO_COMBINED={"Woven Fabric|Other":1};
+/* Chemical test column, revised sheet ("Chemical test - James to add"): only rows filled so far */
+const CHEM={
+ "Other Fabric|Faux Leather/PU":["Total Lead, Total Cadmium and Phthalates, DMFa"],
+ "Other Fabric|Faux Suede":["Total Lead, Total Cadmium and Phthalates, DMFa"],
+ "Other Fabric|Shearling":["Total Lead, Total Cadmium and Chrome VI"],
+ "Other Fabric|Suede":["Total Lead, Total Cadmium and Chrome VI"],
+ "Leather|Real Leather":["Total Lead, Total Cadmium and Chrome VI","If PU coated: include Phthalates"],
+ "Yarn|Metalic":["Total Lead, Total Cadmium","If real metal yarn: include Nickel Release"]
+};
+const REVIEW={"Jersey Fabric|Seamless":"Sheet note: Table 6 for Seamless is with Huong to review."};
+const ELEMENT_MAP={Shell:"MAIN",Main:"MAIN",MAIN:"MAIN",Lining:"LINING",LINING:"LINING"};
+function assignTables(p){
+  const swim=/swim/i.test(p.bg), s4505=/4505/.test(p.bg), el=ELEMENT_MAP[p.element]||p.element, notes=[];
+  const route = swim ? "Swimwear" : s4505 ? "Ski/Sports (4505)" : el==="LINING" ? "Lining" : "Main";
+  let base="", bulk="T1", combined=true, chemKey=p.mat+"|"+p.cons;
+  if(route==="Main" && p.mat==="Yarn" && !(CONSTR.Yarn||[]).some(r=>r[0]===p.cons)){ base="T7"; chemKey=""; } /* Mains · YARN row: Table 7 whatever the construction */
+  else if(route==="Lining"){
+    if(/jersey/i.test(p.mat)) base="T5L"; else if(/woven/i.test(p.mat)) base="T4L";
+    else notes.push("No lining table for "+p.mat+". Fabric technologist to assign.");
+    notes.push("Sheet note: lining tables still to be confirmed.");
+  } else if(route==="Swimwear" && /woven/i.test(p.mat)){ base="T2"; }
+  else {
+    const row=(CONSTR[p.mat]||[]).find(r=>r[0]===p.cons);
+    if(!row){ return {route, tables:[], why:route+" · "+p.mat, notes:["No row for "+p.mat+" / "+(p.cons||"no construction")+". Fabric technologist to assign."], swim}; }
+    base=row[1]; if(NO_COMBINED[p.mat+"|"+p.cons]) combined=false;
+    if(p.mat==="Leather"){ base="T10B"; bulk="T10K"; }
+    if(!base) notes.push("No base table for "+p.cons+" in the testing manual. Pick one in the drop-down or ask the fabric technologist.");
+    if(REVIEW[chemKey]) notes.push(REVIEW[chemKey]);
+  }
+  const chem=(route==="Lining"?[]:CHEM[chemKey])||[];
+  const st=p.stage||"";
+  let t=[];
+  if(/^Base$/.test(st)) t=[base];
+  else if(/^Bulk/.test(st)) t=[bulk];
+  else if(/Base & Bulk/.test(st)){ t = p.mat==="Leather" ? ["T10"] : [base,bulk]; if(!combined) notes.push("Sheet shows no Combined entry for "+p.mat+" / "+p.cons+". Confirm."); }
+  else { t=[base,bulk]; notes.push("Test Stage not picked yet: Base gives the first table, Bulk the second."); }
+  t=t.filter(Boolean);
+  const showCons=!(route==="Swimwear"&&/woven/i.test(p.mat)) && route!=="Lining";
+  const why=[route, el||"", p.mat, showCons?p.cons:"", st||"stage not picked"].filter(Boolean).join(" · ");
+  if(swim) notes.push("Swimwear: add the additional tests in Additional Test (free-typed), as the sheet says.");
+  if(swim||s4505) notes.push((swim?"Swimwear":"Ski/Sports")+" routing to confirm: which PLM field marks it?");
+  return {route, tables:t.map(k=>({k,table:TBL[k],code:CODE[k]||"Protocol code to add"})), why, notes, swim,
+    chem:chem.filter(c=>!/^If /.test(c)), chemIf:chem.filter(c=>/^If /.test(c))};
+}
+const chemHTML=r=>`<div class="chem"><b>CHEMICAL TESTS</b>${r.chem.length?esc(r.chem.join("; ")):"<span style=\"color:var(--muted)\">None listed for this construction yet (chemical column still being completed)</span>"}${r.chemIf.map(c=>`<span class="tnote">${esc(c)}</span>`).join("")}</div>`;
+/* supplier override: one drop-down per assigned table, listing every table. Stored against the system pick,
+   so if the product data changes and the system picks a different table, the old override no longer applies. */
+const TBL_KEYS=Object.keys(TBL);
+function finalTables(){
+  const sys=assignTables(formProduct()).tables.map(t=>t.k);
+  const slots=sys.length?sys:[""];
+  const out=slots.map((k,i)=>{ const o=state.ovr[i]; const pick=(o&&o.sys===k)?o.pick:k; return {i,sys:k,pick,changed:pick!==k}; });
+  (state.added||[]).forEach((k,j)=>out.push({i:"a"+j,sys:"",pick:k,changed:true,added:true}));
+  return out;
+}
+const fieldVal=l=>{ for(const sec of SECTIONS) for(const f of sec.f) if(f.label===l) return f.value; return ""; };
+const formProduct=()=>({bg:fieldVal("Department (Category = CLOTHING)"), element:fieldVal("Element/Component"), mat:fieldVal("Material Type"), cons:fieldVal("Construction"), stage:state.ans.stage||""});
+const pickTables=()=>finalTables().filter(t=>t.pick).map(t=>({k:t.pick,table:TBL[t.pick]}));
+/* Chemical testing on fabrics (team list). Tests are needed only when the fabric is NOT OEKO-TEX certified. */
+const CHEM_TESTS=["PFAS","Total Lead","Total Cadmium","Phthalates","DMFa","Chrome VI","Nickel Release"];
+const CHEM_FEAT=[
+ ["Water/stain repellent",["PFAS"]],
+ ["PU",["Total Lead","Total Cadmium","Phthalates","DMFa"]],
+ ["Leather (uncoated)",["Total Lead","Total Cadmium","Chrome VI"]],
+ ["Leather (coated)",["Total Lead","Total Cadmium","Chrome VI","Phthalates"]],
+ ["Foiled fabric",["Total Lead","Total Cadmium"]],
+ ["Metallised fibres (plastic/polyester)",["Total Lead","Total Cadmium"]],
+ ["Metallised fibres (metal)",["Total Lead","Total Cadmium","Nickel Release"]],
+ ["Adhesives, fusings, laminates",["Phthalates"]],
+ ["Foams (all polymers)",["Total Lead","Total Cadmium","Phthalates"]],
+ ["Glitter (in glue, as a print)",["Total Lead","Total Cadmium","Phthalates"]],
+ ["Plastisol prints",["Total Lead","Total Cadmium","Phthalates"],"DMFa if PU"],
+ ["Pigments: glow in the dark",["Total Lead","Total Cadmium","Phthalates"]],
+ ["Reflective prints",["Total Lead","Total Cadmium","Phthalates"],"DMFa if PU"]
+];
+const featOf=n=>CHEM_FEAT.find(x=>x[0]===n);
+/* what the product data already tells us (Material Type + Construction + Coated Fabric) */
+function sysChemFeat(){
+  const p=formProduct(), k=p.mat+"|"+p.cons, coated=/yes/i.test(fieldVal("Coated Fabric"));
+  if(k==="Other Fabric|Faux Leather/PU"||k==="Other Fabric|Faux Suede") return ["PU"];
+  if(p.mat==="Leather") return [coated?"Leather (coated)":"Leather (uncoated)"];
+  if(k==="Other Fabric|Shearling"||k==="Other Fabric|Suede") return ["Leather (uncoated)"];
+  if(k==="Yarn|Metalic") return ["Metallised fibres (plastic/polyester)"];
+  return [];
+}
+function chemState(){
+  const sys=sysChemFeat().filter(f=>!state.chem.off.includes(f));
+  const feats=[...new Set([...sys,...state.chem.feats])];
+  const hasPU=feats.includes("PU");
+  const fromFeat=new Set(); feats.forEach(n=>{ const f=featOf(n); f[1].forEach(t=>fromFeat.add(t)); if(f[2]&&hasPU) fromFeat.add("DMFa"); });
+  const tests=CHEM_TESTS.filter(t=>(fromFeat.has(t)&&!state.chem.untick.includes(t))||state.chem.tick.includes(t));
+  return {sys:sysChemFeat(), feats, tests, fromFeat, oeko:state.chem.oeko};
+}
+function syncChem(){ const c=chemState(); state.ans.chem = c.oeko ? (state.chem.cert?"OEKO-TEX certified ("+state.chem.cert+"): chemical tests not required":"")
+  : c.tests.length ? c.tests.join(", ") : (state.chem.none?"No chemical tests: none of the listed features apply":""); }
+const EXTRA_TESTS=["Pilling resistance","Abrasion resistance","Seam slippage","Tear strength","Colour fastness to light","Colour fastness to perspiration","Colour fastness to chlorinated water","Appearance after washing","Formaldehyde","pH","Azo dyes","PFAS screen","APEO","Carcinogenic dyes","Disperse dyes","BPA","Heavy metals total"];
+const BRANDS=["ASOS Design","Topshop","Topman","Miss Selfridge","Reclaimed Vintage","Collusion","Adidas"];
+
+/* field model: src = po | plm | rule | sup | pend ; input = list (drop-down) or "text" */
+const F=(label,src,value,from,extra)=>Object.assign({label,src,value,from},extra||{});
+const SECTIONS=[
+ {t:"General information", f:[
+  F("Lab Location","sup","","Supplier selects",{key:"lab",input:LABS,list:"Testing manual"}),
+  F("Service Requested","sup","","Supplier selects",{key:"service",input:SERVICE,list:"Field review"}),
+  F("Program","rule","ASOS General Testing (BAU)","Order Split · PO Priority: blank or REACT = BAU, TEST = Test & React",{list:"Test & React · ASOS General Testing (BAU)",sample:1}),
+  F("Category","rule","Clothing","Buying Group \"Miss Selfridge WB\" is on the clothing list",{list:"Clothing · Footwear · Non-clothing"}),
+  F("Division","rule","Womenswear","Attributes · Website Gender = Women",{list:"Menswear · Unisex · Womenswear",sample:1}),
+  F("Brand","po","Miss Selfridge","PO Brand \"MISS SELF\", mapped to the drop-down value",{list:BRANDS.join(" · ")}),
+  F("Department (Category = CLOTHING)","po","Miss Selfridge WB","PO Buying Group No \"534 - Miss Selfridge WB\", code removed"),
+  F("Option ID","po","100000001","PO Option ID"),
+  F("PO Number","po","500000000001","PO Number"),
+  F("Product Description","po","Ribbed knit cardigan (example)","PO Description"),
+  F("Element/Component","plm","Shell","BOM · Element/Component",{sample:1,added:1}),
+  F("Colour(s)","po","YELLOW","PO Reporting Colour, Website Colour in brackets"),
+  F("Claimed Fiber Content","plm","70% Viscose, 30% Nylon","Material Library · Composition",{sample:1}),
+  F("Claimed Weight","plm","240 gsm","Material Library · Weight (Before Wash)",{sample:1}),
+  F("Proposed Wash Care","sup","","Supplier selects",{key:"care",input:"care",list:"Recommended wash cares in the testing manual (being updated)"}),
+  F("Country of Origin (of tested item)","plm","China","Material Library · Mill Country",{sample:1,list:"All countries"}),
+  F("Promotion Claims","pend","Awaiting PLM attribute","To be added to PLM or the PO (PO raising workshop)",{list:"Claims from the testing manual"}),
+  F("Is product circular collection","rule","No","Attributes · Sustainable Design: Design for Durability = Yes",{sample:1,list:"Yes · No"}),
+  F("Sub Category","rule","Fabric","Fixed for Stage 1",{list:"Garment · Fabric · Trim/Component"}),
+  F("Test Stage","sup","","Supplier selects",{key:"stage",input:STAGE,list:"Field review"})
+ ]},
+ {t:"ASOS supplier information", f:[
+  F("Supplier Name","po","Example Supplier Ltd","PO Supplier Details"),
+  F("Supplier ID","plm","S1xxxx","Supplier record · ID",{sample:1}),
+  F("Email","plm","(supplier login email)","Supplier login email address",{sample:1})
+ ]},
+ {t:"Factory information", f:[
+  F("Factory Name","po","Example Factory","PO Factory Name",{list:"Factories linked to the supplier"}),
+  F("Factory ID","po","F000000","PO Factory ID")
+ ]},
+ {t:"Invoice information", invoice:true, f:[
+  F("Invoice To","sup","","Supplier selects",{key:"invto",input:PAYER,list:"Suggested: Supplier · Applicant · ASOS · Other"}),
+  F("Invoice Company Name","sup","","Supplier types",{key:"invname",input:"text"}),
+  F("Address","sup","","Supplier types",{key:"invaddr",input:"text"}),
+  F("City","sup","","Supplier types",{key:"invcity",input:"text"}),
+  F("State/Province","sup","","Supplier types",{key:"invstate",input:"text"}),
+  F("Country","sup","","Supplier selects",{key:"invcountry",input:COUNTRIES,list:"All countries"}),
+  F("Contact Person","sup","","Supplier types",{key:"invcontact",input:"text"}),
+  F("Email","sup","","Supplier types",{key:"invemail",input:"text"}),
+  F("Telephone","sup","","Supplier types",{key:"invtel",input:"text"})
+ ]},
+ {t:"Component level testing information · #1 Fabric", f:[
+  F("Quality Reference","plm","PASTRY","Material Library · buying name for the fabric",{sample:1}),
+  F("Material Code","plm","MAT-1xxxxx","Material Library · ASOS assigned code (automatic in PLM)",{sample:1,added:1}),
+  F("Supplier Fabric Reference","plm","SUP-RIB-001","Material Library · Supplier/Mill Material Ref",{sample:1}),
+  F("Mill Name","plm","(mill name)","Material Library · Mill",{sample:1}),
+  F("Material Description","plm","Rib knit, piece dyed","Material Library · Description",{sample:1}),
+  F("Material Type","plm","Jersey Fabric","Material Library · Material Type",{sample:1,added:1,list:"Jersey Fabric · Woven Fabric · Other Fabric · Leather · Yarn"}),
+  F("Construction","plm","Rib","Material Library · Construction",{sample:1,added:1}),
+  F("Test Standard","rule","","Testing manual logic picks the tables; supplier can change them",{key:"std",tables:1}),
+  F("Chemical Testing","sup","","Supplier confirms OEKO-TEX or the fabric features; product data pre-ticks what it can",{key:"chem",input:"chem"}),
+  F("Additional Test","sup","","Supplier adds, following the testing manual",{key:"extra",input:"extra",optional:1}),
+  F("Is the Fabric/Garment Raised","sup","","Supplier selects",{key:"raised",input:YN,list:"Yes · No"}),
+  F("Wash Recipe","sup","","Supplier types",{key:"recipe",input:"text"}),
+  F("Coated Fabric","rule","No","Material Library · Construction: Faux leather/PU = Yes",{sample:1,list:"Yes · No"})
+ ]}
+];
+const SRC={po:["PO","From the PO","var(--po)"],plm:["PLM","From PLM","var(--plm)"],rule:["RULE","Worked out by rule","var(--rule)"],sup:["SUPPLIER","Supplier completes","var(--sup)"],pend:["PENDING","Decision needed","var(--pend)"]};
+const SAVED={invto:"Supplier",invname:"Example Supplier Ltd",invaddr:"1 Example Street",invcity:"Example City",invstate:"Example Region",invcountry:"Hong Kong",invcontact:"Accounts",invemail:"(saved)",invtel:"(saved)"};
+const CHEM0=()=>({oeko:false,cert:"",feats:[],off:[],tick:[],untick:[],none:false});
+const state={ans:{},care:{},extra:[],ovr:{},added:[],chem:CHEM0(),filter:null,profile:""};
+const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const all=()=>SECTIONS.flatMap(s=>s.f);
+const val=f=>f.tables?pickTables().map(r=>r.table).join(" + "):f.key==="extra"?state.extra.map(e=>e.test).join("; "):f.src==="sup"?(state.ans[f.key]||""):f.value;
+
+function renderBar(){
+  const c={po:0,plm:0,rule:0,sup:0,pend:0}; all().forEach(f=>c[f.src]++);
+  const dd=all().filter(f=>f.src==="sup"&&(Array.isArray(f.input)||f.input==="care"||f.input==="chem")).length;
+  const sub={po:"from the PO",plm:"from PLM",rule:"worked out by rule",sup:`supplier: ${dd} drop-down, ${c.sup-dd-all().filter(f=>f.optional).length} typed, ${all().filter(f=>f.optional).length} optional`,pend:"waiting on a decision"};
+  document.getElementById("srcbar").innerHTML=Object.keys(c).map(k=>`<button data-s="${k}" aria-pressed="${state.filter===k}"><b>${c[k]}</b><span><i class="k" style="background:${SRC[k][2]}"></i>${sub[k]}</span></button>`).join("")
+   +`<button data-s="" aria-pressed="${state.filter===null}"><b>${all().length}</b><span>fields in total · show all</span></button>`;
+  document.querySelectorAll("#srcbar button").forEach(b=>b.onclick=()=>{ state.filter=b.dataset.s||null; render(); });
+}
+function fieldHTML(f){
+  const v=val(f), dim=state.filter&&f.src!==state.filter?" dim":"";
+  let body;
+  if(f.src==="sup"){
+    const id="in-"+f.key;
+    if(f.input==="extra"){
+      body=`${state.extra.length?`<ul class="xlist">${state.extra.map((e,i)=>`<li><span><b>${esc(e.test)}</b>${e.why?` · ${esc(e.why)}`:""}</span><button type="button" class="xdel" data-del="${i}" aria-label="Remove ${esc(e.test)}">✕</button></li>`).join("")}</ul>`:""}
+        <div class="xadd"><select id="x-pick" aria-label="Additional test from the testing manual"><option value="">Add a test from the manual…</option>${EXTRA_TESTS.map(t=>`<option>${esc(t)}</option>`).join("")}</select>
+        <input id="x-own" type="text" placeholder="…or type another test" aria-label="Other test">
+        <button type="button" class="btn ghost xbtn" id="x-add">Add test</button></div>
+        <span class="dd">Optional · ${state.extra.length} added </span>`;
+    } else if(f.input==="chem"){
+      const c=chemState(), ck=state.chem;
+      const feats=c.feats.map(n=>{ const isSys=c.sys.includes(n)&&!ck.feats.includes(n); const ft=featOf(n);
+        return `<li><span><b>${esc(n)}</b> · ${esc(ft[1].join(", "))}${ft[2]?` <i>(${esc(ft[2])})</i>`:""} ${isSys?'<span class="tag sys">FROM PRODUCT DATA</span>':""}</span><button type="button" class="xdel" data-cfdel="${esc(n)}" aria-label="Remove ${esc(n)}">✕</button></li>`; }).join("");
+      const left=CHEM_FEAT.filter(x=>!c.feats.includes(x[0]));
+      const grid=CHEM_TESTS.map(t=>{ const on=c.tests.includes(t), why=c.fromFeat.has(t);
+        return `<label class="ctest${on?" on":""}"><input type="checkbox" data-ctest="${esc(t)}"${on?" checked":""}${c.oeko?" disabled":""}> ${esc(t)}${why&&on?'<span class="p"> · required</span>':""}${!why&&on?'<span class="p"> · added by supplier</span>':""}${why&&!on?'<span class="p"> · unticked by supplier: flagged to the fabric technologist</span>':""}</label>`; }).join("");
+      body=`<label class="oeko"><input type="checkbox" id="c-oeko"${c.oeko?" checked":""}> <b>Fabric is OEKO-TEX certified</b> <span class="p">· the tests below are then not needed</span></label>
+        ${c.oeko?`<input id="c-cert" type="text" value="${esc(ck.cert)}" placeholder="OEKO-TEX certificate number (certificate to be uploaded)" aria-label="OEKO-TEX certificate number">`:""}
+        <div class="${c.oeko?"cdim":""}">
+        ${feats?`<ul class="xlist">${feats}</ul>`:""}
+        <div class="xadd"><select id="c-pick" aria-label="Fabric feature needing chemical tests"${c.oeko?" disabled":""}><option value="">Add a fabric feature…</option>${left.map(x=>`<option>${esc(x[0])}</option>`).join("")}</select>
+        <button type="button" class="btn ghost xbtn" id="c-add"${c.oeko?" disabled":""}>Add</button></div>
+        <div class="cgrid" role="group" aria-label="Chemical tests">${grid}</div>
+        ${!c.feats.length&&!c.oeko?`<label class="oeko"><input type="checkbox" id="c-none"${ck.none?" checked":""}> None of the listed features apply</label>`:""}
+        </div>
+        <span class="dd" id="c-cap">${c.oeko?(ck.cert?"OEKO-TEX: chemical tests not requested":"Add the certificate number"):c.tests.length?c.tests.length+" chemical tests requested":"Pick a feature, tick OEKO-TEX, or confirm none apply"}</span>`;
+    } else if(f.input==="care"){
+      const chosen=CARE_SLOTS.map(sl=>`<span class="pick">${sym(state.care[sl.k]||"",34)}</span>`).join("");
+      body=`<div class="carelabel" aria-label="Selected care symbols">${chosen}</div><div class="carepick" role="group" aria-label="Proposed wash care">${CARE_SLOTS.map(sl=>`<div class="crow" role="radiogroup" aria-label="${sl.t}">${sl.opts.map(o=>`<button type="button" role="radio" aria-checked="${state.care[sl.k]===o[1]}" class="sb${state.care[sl.k]===o[1]?" on":""}" data-slot="${sl.k}" data-sym="${o[1]}" title="${esc(o[0])}" aria-label="${esc(o[0])}">${sym(o[1],28)}</button>`).join("")}</div>`).join("")}</div><span class="dd">${careComplete()?"5 of 5 symbols chosen":"Pick one symbol per row · "+CARE_SLOTS.filter(sl=>state.care[sl.k]).length+" of 5 chosen"}</span>`;
+    } else body= f.input==="text" ? `<input id="${id}" data-k="${f.key}" type="text" value="${esc(v)}" placeholder="Type…">`
+      : `<select id="${id}" data-k="${f.key}"><option value="">Select…</option>${f.input.map(x=>`<option${x===v?" selected":""}>${esc(x)}</option>`).join("")}</select>`;
+    if(f.input!=="care"&&f.input!=="extra"&&f.input!=="chem") body+=`<span class="dd cap">${Array.isArray(f.input)?"Drop-down · "+esc(f.list||""):"Free text"}</span>`;
+  } else {
+    if(f.tables){ const r=assignTables(formProduct()), ft=finalTables(), nchg=ft.filter(t=>t.changed).length;
+      const opt=sel=>`<option value="">${sel?"Remove this table":"Pick a table…"}</option>`+TBL_KEYS.map(k=>`<option value="${k}"${k===sel?" selected":""}>${esc(TBL[k])}</option>`).join("");
+      const rows=ft.map(t=>{ const sysName=t.sys?TBL[t.sys]:"";
+        const meta = t.added ? `<span class="tag chg">ADDED BY SUPPLIER</span><button type="button" class="linkbtn" data-tdel="${t.i}">Remove</button>`
+          : !t.sys ? `<span class="tag chg">NO SYSTEM TABLE</span><span>The logic found no table: pick one</span>`
+          : t.changed ? `<span class="tag chg">CHANGED BY SUPPLIER</span><span>System assigned: ${esc(sysName)}</span><button type="button" class="linkbtn" data-treset="${t.i}">Use system table</button>`
+          : `<span class="tag sys">SYSTEM ASSIGNED</span><span>${esc(CODE[t.sys]||"Protocol code to add")}</span>`;
+        return `<li class="${t.changed?"chg":""}"><select data-tslot="${t.i}" aria-label="Test standard table ${typeof t.i==="number"?t.i+1:""}">${opt(t.pick)}</select><span class="meta">${meta}</span></li>`; }).join("");
+      body=`<ul class="tpick">${rows}</ul><button type="button" class="linkbtn" id="t-add" style="align-self:flex-start">+ Add another table</button><span class="p">Because: ${esc(r.why)}</span>${r.notes.map(n=>`<span class="tnote">${esc(n)}</span>`).join("")}${nchg?`<span class="tnote">${nchg} table${nchg>1?"s":""} changed by the supplier: flagged to the fabric technologist for sign-off.</span>`:""}<span class="dd">Drop-down · all ${TBL_KEYS.length} testing manual tables</span>`;
+    } else body=`<span class="v">${f.src==="pend"?`<i>${esc(v)}</i>`:esc(v)}${f.sample?'<span class="sample">sample</span>':""}</span><span class="p">${esc(f.from)}</span>`;
+  }
+  const empty=f.src==="sup"&&!v?" empty":"", locked=(f.src==="po"||f.src==="plm"||f.src==="rule")?" locked":"";
+  const wide=(f.tables||f.input==="extra"||f.input==="chem"||f.input==="care")?" wide":"";
+  return `<div class="f${dim}${empty}${locked}${wide}"><span class="l"><span>${esc(f.label)}${f.added?' <span class="src s-pend">ADDED</span>':""}</span><span class="src s-${f.src}">${SRC[f.src][0]}</span></span>${body}</div>`;
+}
+function renderForm(){
+  document.getElementById("form").innerHTML=SECTIONS.map(s=>{
+    let h=`<div class="sec"><h3>${esc(s.t)}</h3>`;
+    if(s.invoice){ const dim=state.filter&&state.filter!=="sup"?" dim":"";
+      h+=`<div class="f${dim}${state.profile?"":" empty"}" style="border-top:0;max-width:440px"><span class="l"><span>Use saved invoice details</span><span class="src s-sup">SUPPLIER</span></span><select id="profile"><option value="">Select…</option><option${state.profile?" selected":""}>Example Supplier Ltd (saved)</option></select><span class="dd">Optional</span></div>`; }
+    return h+`<div class="grid">${s.f.map(fieldHTML).join("")}</div></div>`;
+  }).join("");
+  document.querySelectorAll("#form [data-k]").forEach(el=>el.addEventListener(el.tagName==="INPUT"?"input":"change",()=>{ state.ans[el.dataset.k]=el.value; renderSide(); if(el.tagName!=="INPUT") renderForm(); }));
+  const xa=document.getElementById("x-add"); if(xa) xa.onclick=()=>{ const t=(document.getElementById("x-own").value.trim()||document.getElementById("x-pick").value); if(!t) { document.getElementById("x-pick").focus(); return; } state.extra.push({test:t}); renderSide(); renderForm(); document.getElementById("x-pick").focus(); };
+  const rr=()=>{ syncChem(); renderSide(); renderForm(); };
+  const co=document.getElementById("c-oeko"); if(co) co.onchange=()=>{ state.chem.oeko=co.checked; rr(); const n=document.getElementById(co.checked?"c-cert":"c-oeko"); if(n) n.focus(); };
+  const cc=document.getElementById("c-cert"); if(cc) cc.oninput=()=>{ state.chem.cert=cc.value; syncChem(); renderSide(); document.getElementById("c-cap").textContent=cc.value?"OEKO-TEX: chemical tests not requested":"Add the certificate number"; };
+  const cn=document.getElementById("c-none"); if(cn) cn.onchange=()=>{ state.chem.none=cn.checked; rr(); };
+  const cadd=document.getElementById("c-add"); if(cadd) cadd.onclick=()=>{ const v=document.getElementById("c-pick").value; if(!v){ document.getElementById("c-pick").focus(); return; }
+    state.chem.off=state.chem.off.filter(x=>x!==v); if(!sysChemFeat().includes(v)) state.chem.feats.push(v); state.chem.none=false; rr(); document.getElementById("c-pick").focus(); };
+  document.querySelectorAll("#form [data-cfdel]").forEach(b=>b.onclick=()=>{ const n=b.dataset.cfdel; state.chem.feats=state.chem.feats.filter(x=>x!==n); if(sysChemFeat().includes(n)) state.chem.off.push(n); rr(); });
+  document.querySelectorAll("#form [data-ctest]").forEach(x=>x.onchange=()=>{ const t=x.dataset.ctest, req=chemState().fromFeat.has(t), ck=state.chem;
+    ck.tick=ck.tick.filter(y=>y!==t); ck.untick=ck.untick.filter(y=>y!==t);
+    if(x.checked&&!req) ck.tick.push(t); if(!x.checked&&req) ck.untick.push(t); rr(); const n=document.querySelector(`#form [data-ctest="${t}"]`); if(n) n.focus(); });
+  document.querySelectorAll("#form [data-tslot]").forEach(s=>s.onchange=()=>{ const i=s.dataset.tslot;
+    if(i[0]==="a"){ const j=+i.slice(1); if(s.value) state.added[j]=s.value; else state.added.splice(j,1); }
+    else { const t=finalTables().find(x=>String(x.i)===i); state.ovr[i]={sys:t.sys,pick:s.value}; }
+    renderSide(); renderForm(); });
+  document.querySelectorAll("#form [data-treset]").forEach(b=>b.onclick=()=>{ delete state.ovr[b.dataset.treset]; renderSide(); renderForm(); });
+  document.querySelectorAll("#form [data-tdel]").forEach(b=>b.onclick=()=>{ state.added.splice(+b.dataset.tdel.slice(1),1); renderSide(); renderForm(); });
+  const ta=document.getElementById("t-add"); if(ta) ta.onclick=()=>{ state.added.push(""); renderForm(); const s=document.querySelector(`#form [data-tslot="a${state.added.length-1}"]`); if(s) s.focus(); };
+  document.querySelectorAll("#form [data-del]").forEach(b=>b.onclick=()=>{ state.extra.splice(+b.dataset.del,1); renderSide(); renderForm(); });
+  document.querySelectorAll("#form [data-sym]").forEach(el=>el.onclick=()=>{ const k=el.dataset.slot; state.care[k]=state.care[k]===el.dataset.sym?"":el.dataset.sym; syncCare(); renderSide(); renderForm(); const n=document.querySelector(`#form [data-slot="${k}"][data-sym="${el.dataset.sym}"]`); if(n) n.focus(); });
+  document.getElementById("profile").onchange=e=>{ state.profile=e.target.value; if(state.profile) Object.assign(state.ans,SAVED); else Object.keys(SAVED).forEach(k=>state.ans[k]=""); render(); };
+}
+function renderSide(){
+  const fs=all(), n=fs.length, auto=fs.filter(f=>["po","plm","rule"].includes(f.src)).length;
+  const sup=fs.filter(f=>f.src==="sup"&&!f.optional), done=sup.filter(f=>state.ans[f.key]).length, pend=fs.filter(f=>f.src==="pend").length;
+  document.getElementById("prog").innerHTML=`<i style="width:${auto/n*100}%;background:var(--plm)"></i><i style="width:${done/n*100}%;background:var(--sup)"></i><i style="width:${pend/n*100}%;background:var(--pend)"></i>`;
+  document.getElementById("pct").textContent=Math.round((auto+done)/n*100)+"% filled";
+  document.getElementById("progtxt").innerHTML=`${auto} filled automatically (PO, PLM, rules)<br>${done} of ${sup.length} supplier fields completed<br>${pend} pending a decision`;
+}
+function renderDD(){
+  const rows=all().filter(f=>f.list||Array.isArray(f.input)||f.input==="care"||f.tables||f.input==="extra"||f.input==="chem");
+  document.getElementById("dd").innerHTML=rows.map(f=>{
+    if(f.input==="chem") return `<tr><td><b>${esc(f.label)}</b><span class="dd" style="display:block">OEKO-TEX tick box, then fabric features → tests</span></td><td><span class="src s-sup">SUPPLIER</span></td><td class="opts">${CHEM_FEAT.map(x=>`<span><b>${esc(x[0])}</b>: ${esc(x[1].join(", "))}${x[2]?" ("+esc(x[2])+")":""}</span>`).join("")}</td><td style="font-size:13px;color:var(--muted)">Team chemical testing list for fabrics. Required only when the fabric has no OEKO-TEX certificate. PU, leather, suede, shearling and metallic yarn are pre-ticked from the Material Library</td></tr>`;
+    if(f.tables) return `<tr><td><b>${esc(f.label)}</b><span class="dd" style="display:block">Logic pre-selects; supplier can change or add</span></td><td><span class="src s-rule">RULE</span> <span class="src s-sup">SUPPLIER</span></td><td class="opts">${Object.values(TBL).map(t=>`<span>${esc(t)}</span>`).join("")}</td><td style="font-size:13px;color:var(--muted)">Your logic sheet: element, material type, construction and test stage pick the table. A supplier change is flagged for fabric technologist sign-off. Try it above</td></tr>`;
+    if(f.input==="extra") return `<tr><td><b>${esc(f.label)}</b><span class="dd" style="display:block">Optional, add any number</span></td><td><span class="src s-sup">SUPPLIER</span></td><td class="opts">${EXTRA_TESTS.map(t=>`<span>${esc(t)}</span>`).join("")}<span>+ free text</span></td><td style="font-size:13px;color:var(--muted)">Sample list of additional tests. Real list from the testing manual</td></tr>`;
+    if(f.input==="care") return `<tr><td><b>${esc(f.label)}</b><span class="dd" style="display:block">5 symbol lists, symbols only</span></td><td><span class="src s-sup">SUPPLIER</span></td><td class="opts">${CARE_SLOTS.map(sl=>`<div class="ddrow">${sl.opts.map(o=>`<span class="ddsym" title="${esc(o[0])}">${sym(o[1],28)}</span>`).join("")}</div>`).join("")}</td><td style="font-size:13px;color:var(--muted)">One list per symbol: wash, bleach, tumble dry, iron, dry clean. Symbol set to confirm against PLM and the testing manual</td></tr>`;
+    const vals=Array.isArray(f.input)?f.input:String(f.list).split(" · ");
+    const fromList=Array.isArray(f.input)?(f.list||""):"Field review";
+    const who=`<span class="src s-${f.src}">${SRC[f.src][0]}</span>`;
+    return `<tr><td><b>${esc(f.label)}</b></td><td>${who}</td><td class="opts">${vals.map(v=>`<span>${esc(v)}</span>`).join("")}</td><td style="font-size:13px;color:var(--muted)">${esc(f.src==="sup"?fromList:(f.list&&Array.isArray(f.input)?f.list:"Set automatically; list kept for edits"))}</td></tr>`;
+  }).join("");
+}
+function render(){ syncChem(); renderBar(); renderForm(); renderSide(); }
+document.getElementById("today").textContent=new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}).replace(/ /g,"-");
+document.getElementById("clear").onclick=()=>{ state.ans={}; state.care={}; state.extra=[]; state.ovr={}; state.added=[]; state.chem=CHEM0(); state.profile=""; render(); };
+renderBar=function(){}; renderSide=function(){}; renderDD=function(){};
+renderDD(); render();
+</script>
+</body>
+</html>
